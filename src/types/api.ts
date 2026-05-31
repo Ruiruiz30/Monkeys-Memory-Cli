@@ -33,7 +33,6 @@ export type CLIArgs = JsonObject & {
   data?: string;
   params?: string;
   actionId?: string;
-  manifestUrl?: string;
   manifestHash?: string;
   type?: string;
   evidenceType?: string;
@@ -71,7 +70,7 @@ export type RepoScanResult = {
 export type SkillManifestItem = {
   name: string;
   path: string;
-  url: string;
+  url?: string;
   sha256: string;
 };
 

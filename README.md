@@ -16,6 +16,9 @@ monkeys-memory login
 `login` opens your browser, authorizes the current terminal, stores a local CLI
 token, and syncs the official Codex and Claude Code Skills.
 
+The official Skills are bundled in this npm package and are updated when you
+upgrade the CLI.
+
 ## Common Commands
 
 ```bash
@@ -39,8 +42,12 @@ Installed Skills call the CLI instead of calling the hosted API directly:
 - `monkeys-memory memory-evaluate` reports whether retrieved memory helped or no
   longer matches the repository.
 - `monkeys-memory repo scan` reports local repository metadata.
-- `monkeys-memory install-skills` refreshes official Skills from a verified
-  manifest.
+- `monkeys-memory install-skills` refreshes official Skills from the installed
+  CLI package.
+
+The CLI periodically checks npm for a newer `@inf-monkeys-tech/monkeys-memory-cli`
+release. When a newer version exists, it updates the global package with npm and
+then syncs the bundled Skills again.
 
 Commands print JSON so coding agents can consume the output reliably.
 
@@ -83,6 +90,7 @@ src/commands/         CLI command handlers
 src/core/             args, config, HTTP, crypto helpers
 src/local/            git and local Skill installation helpers
 src/types/            shared TypeScript types
+skills/               official Codex and Claude Code Skills bundled with CLI
 dist/                 compiled publishable JavaScript
 test/                 CLI behavior tests
 ```

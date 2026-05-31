@@ -11,6 +11,9 @@ export type CLIConfig = {
   token?: string;
   tokenId?: string;
   expiresAt?: string;
+  update?: {
+    lastCheckedAt?: string;
+  };
 };
 
 export function trimTrailingSlash(value: unknown): string {

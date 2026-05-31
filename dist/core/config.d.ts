@@ -6,6 +6,9 @@ export type CLIConfig = {
     token?: string;
     tokenId?: string;
     expiresAt?: string;
+    update?: {
+        lastCheckedAt?: string;
+    };
 };
 export declare function trimTrailingSlash(value: unknown): string;
 export declare function pathExists(targetPath: string): Promise<boolean>;

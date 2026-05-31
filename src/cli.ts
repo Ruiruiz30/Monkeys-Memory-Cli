@@ -9,6 +9,7 @@ import { updateSkills } from './commands/skills.js';
 import { agentActionResult } from './commands/actions.js';
 import { apiCommand } from './commands/api.js';
 import { evaluateMemory } from './commands/evaluate.js';
+import { checkForCliUpdate } from './core/update.js';
 
 function usage(): void {
   console.log(`Usage:
@@ -21,14 +22,17 @@ function usage(): void {
   monkeys-memory capture [--repo <repo>] --title <title> --claim <claim> --path <path> [--task <task>]
   monkeys-memory memory-evaluate [--repo <repo>] --rule-id <id> --outcome helpful|not-relevant|outdated|accepted|failed
   monkeys-memory repo scan [--repo <repo>] [--workspace <dir>] [--action-id <id>] [--no-report]
-  monkeys-memory update-skills [--action-id <id>] [--manifest-url <url>] [--manifest-hash <sha256>] [--no-report]
-  monkeys-memory install-skills [--manifest-url <url>] [--manifest-hash <sha256>]
+  monkeys-memory update-skills [--action-id <id>] [--no-report]
+  monkeys-memory install-skills
   monkeys-memory agent-capabilities
-  monkeys-memory agent-action-result --action-id <id> --type repo_scan|skill_update [--workspace <dir>] [--no-report]
+  monkeys-memory agent-action-result --action-id <id> --type repo_scan [--workspace <dir>] [--no-report]
   monkeys-memory api <METHOD> <PATH> [--data <json>] [--params <json>]`);
 }
 
 export async function main(argv: string[]): Promise<void> {
+  await checkForCliUpdate().catch((error: Error) => {
+    console.error(`[monkeys-memory] Update check skipped: ${error.message}`);
+  });
   const command = argv[0];
   if (!command || command === '--help' || command === '-h') {
     usage();

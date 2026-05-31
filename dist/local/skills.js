@@ -2,9 +2,12 @@ import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { atomicWrite, ensureDir, getApiUrl, pathExists } from '../core/config.js';
+import { fileURLToPath } from 'node:url';
+import { atomicWrite, ensureDir, pathExists } from '../core/config.js';
 import { sha256 } from '../core/crypto.js';
 const OFFICIAL_SKILLS = new Set(['monkeys-memory-use', 'monkeys-memory-capture']);
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const PACKAGED_SKILLS_ROOT = path.join(PACKAGE_ROOT, 'skills');
 async function installationState() {
     const filePath = path.join(os.homedir(), '.monkeys-memory', 'agent-installation.json');
     if (await pathExists(filePath))
@@ -37,16 +40,6 @@ export async function agentCapabilities() {
     }
     return { installation_id: state.installation_id, skills };
 }
-function validateOfficialUrl(value, apiUrl) {
-    const url = new URL(value);
-    const apiOrigin = new URL(apiUrl).origin;
-    if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-        throw new Error(`URL must use HTTPS: ${url.href}`);
-    }
-    if (url.origin !== apiOrigin)
-        throw new Error(`URL is outside the configured API origin: ${url.origin}`);
-    return url;
-}
 function validateSkill(skill) {
     if (!OFFICIAL_SKILLS.has(skill?.name))
         throw new Error(`unsupported SaaS skill: ${skill?.name}`);
@@ -55,26 +48,47 @@ function validateSkill(skill) {
     if (!/^[a-f0-9]{64}$/.test(skill.sha256 ?? ''))
         throw new Error(`invalid sha256 for skill: ${skill.name}`);
 }
-async function fetchJson(url) {
-    const response = await fetch(url);
-    if (!response.ok)
-        throw new Error(`download failed (${response.status}): ${url.href}`);
-    return response.json();
+async function packagedManifest() {
+    const manifestPath = path.join(PACKAGED_SKILLS_ROOT, 'manifest.txt');
+    const raw = await fs.readFile(manifestPath, 'utf8');
+    const entries = raw
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('#'));
+    const skills = [];
+    for (const relativePath of entries) {
+        if (!relativePath.endsWith('/SKILL.md') || relativePath.includes('..') || path.isAbsolute(relativePath))
+            continue;
+        const name = relativePath.split('/')[0];
+        if (!OFFICIAL_SKILLS.has(name))
+            continue;
+        const content = await fs.readFile(path.join(PACKAGED_SKILLS_ROOT, relativePath));
+        skills.push({
+            name,
+            path: relativePath,
+            sha256: sha256(content),
+        });
+    }
+    const normalized = skills
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map((skill) => `${skill.name}:${skill.sha256}`)
+        .join('\n');
+    return {
+        schema_version: 1,
+        generated_at: new Date().toISOString(),
+        manifest_hash: sha256(Buffer.from(normalized)),
+        skills,
+    };
 }
 export async function skillUpdateResult(action) {
-    const apiUrl = await getApiUrl();
-    const manifestUrl = action.payload?.manifest_url ?? `${apiUrl}/api/v1/skills/manifest`;
-    const manifest = await fetchJson(validateOfficialUrl(manifestUrl, apiUrl));
+    const manifest = await packagedManifest();
     if (action.payload?.manifest_hash && manifest.manifest_hash !== action.payload.manifest_hash) {
-        throw new Error('skill manifest hash does not match the leased action');
+        throw new Error('packaged skill manifest hash does not match the requested hash');
     }
     const downloaded = [];
     for (const skill of manifest.skills ?? []) {
         validateSkill(skill);
-        const response = await fetch(validateOfficialUrl(skill.url, apiUrl));
-        if (!response.ok)
-            throw new Error(`skill download failed (${response.status}): ${skill.name}`);
-        const content = Buffer.from(await response.arrayBuffer());
+        const content = await fs.readFile(path.join(PACKAGED_SKILLS_ROOT, skill.path));
         if (sha256(content) !== skill.sha256)
             throw new Error(`skill checksum mismatch: ${skill.name}`);
         downloaded.push({ skill, content });

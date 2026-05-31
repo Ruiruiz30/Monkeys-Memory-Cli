@@ -1,0 +1,4 @@
+# One relative file path per line.
+# The installer syncs each top-level skill directory bundled in this package.
+monkeys-memory-capture/SKILL.md
+monkeys-memory-use/SKILL.md

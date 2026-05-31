@@ -1,6 +1,5 @@
-import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,7 +14,7 @@ async function run(args, options = {}) {
   const home = options.home ?? await mkdtemp(path.join(os.tmpdir(), 'mm-cli-test-'));
   return execFileAsync(process.execPath, [cliPath, ...args], {
     cwd: options.cwd ?? process.cwd(),
-    env: { ...process.env, HOME: home, USERPROFILE: home, ...options.env },
+    env: { ...process.env, MONKEYS_MEMORY_SKIP_UPDATE_CHECK: '1', HOME: home, USERPROFILE: home, ...options.env },
     encoding: 'utf8',
   });
 }
@@ -147,35 +146,15 @@ test('memory-evaluate posts agent memory evaluation feedback', async () => {
 
 test('install-skills creates Codex and Claude skill directories on a fresh machine', async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
-  const useContent = '# use\n';
-  const captureContent = '# capture\n';
-  const digest = (value) => crypto.createHash('sha256').update(value).digest('hex');
-  const manifest = {
-    manifest_hash: '0'.repeat(64),
-    skills: [
-      { name: 'monkeys-memory-use', path: 'monkeys-memory-use/SKILL.md', url: '', sha256: digest(useContent) },
-      { name: 'monkeys-memory-capture', path: 'monkeys-memory-capture/SKILL.md', url: '', sha256: digest(captureContent) },
-    ],
-  };
-  const server = await startServer(async (req) => {
-    if (req.url === '/api/v1/skills/manifest') return { body: manifest };
-    if (req.url === '/public/skills/monkeys-memory-use/SKILL.md') return { text: useContent };
-    if (req.url === '/public/skills/monkeys-memory-capture/SKILL.md') return { text: captureContent };
-    return { status: 404, body: { error: 'not found' } };
-  });
-  manifest.skills[0].url = `${server.url}/public/skills/monkeys-memory-use/SKILL.md`;
-  manifest.skills[1].url = `${server.url}/public/skills/monkeys-memory-capture/SKILL.md`;
+  const useContent = await readFile(path.resolve('skills/monkeys-memory-use/SKILL.md'), 'utf8');
+  const captureContent = await readFile(path.resolve('skills/monkeys-memory-capture/SKILL.md'), 'utf8');
 
-  try {
-    await run(['install-skills', '--manifest-hash', manifest.manifest_hash], {
-      home,
-      env: { MONKEYS_MEMORY_API_URL: server.url, MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
-    });
-    const codexUse = await (await import('node:fs/promises')).readFile(path.join(home, '.codex', 'skills', 'monkeys-memory-use', 'SKILL.md'), 'utf8');
-    const claudeCapture = await (await import('node:fs/promises')).readFile(path.join(home, '.claude', 'skills', 'monkeys-memory-capture', 'SKILL.md'), 'utf8');
-    assert.equal(codexUse, useContent);
-    assert.equal(claudeCapture, captureContent);
-  } finally {
-    await server.close();
-  }
+  await run(['install-skills'], {
+    home,
+    env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
+  });
+  const codexUse = await readFile(path.join(home, '.codex', 'skills', 'monkeys-memory-use', 'SKILL.md'), 'utf8');
+  const claudeCapture = await readFile(path.join(home, '.claude', 'skills', 'monkeys-memory-capture', 'SKILL.md'), 'utf8');
+  assert.equal(codexUse, useContent);
+  assert.equal(claudeCapture, captureContent);
 });
