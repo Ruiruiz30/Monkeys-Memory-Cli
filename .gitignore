@@ -1,0 +1,20 @@
+node_modules/
+.DS_Store
+
+# Local auth/config
+.monkeys-memory/
+*.env
+.env
+.env.*
+
+# Logs and temporary files
+*.log
+*.tmp
+*.tgz
+
+# Coverage
+coverage/
+
+# Editor
+.idea/
+.vscode/
