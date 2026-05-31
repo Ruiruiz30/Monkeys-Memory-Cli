@@ -23,6 +23,7 @@ monkeys-memory auth status
 monkeys-memory install-skills
 monkeys-memory retrieve --repo my-repo --path src/file.ts --task bugfix --limit 5
 monkeys-memory capture --repo my-repo --title "Adapter rule" --claim "Always validate through the adapter." --path "src/adapter/**" --task feature
+monkeys-memory memory-evaluate --repo my-repo --rule-id rule_1 --outcome helpful --adopted true --confidence 0.86 --evidence "npm test passed"
 monkeys-memory repo scan --repo my-repo --workspace .
 ```
 
@@ -35,6 +36,8 @@ Installed Skills call the CLI instead of calling the hosted API directly:
 
 - `monkeys-memory retrieve` fetches relevant team memory.
 - `monkeys-memory capture` saves reusable engineering insights.
+- `monkeys-memory memory-evaluate` reports whether retrieved memory helped or no
+  longer matches the repository.
 - `monkeys-memory repo scan` reports local repository metadata.
 - `monkeys-memory install-skills` refreshes official Skills from a verified
   manifest.

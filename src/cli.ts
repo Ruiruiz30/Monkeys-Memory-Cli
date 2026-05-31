@@ -8,6 +8,7 @@ import { repoScan } from './commands/repo.js';
 import { updateSkills } from './commands/skills.js';
 import { agentActionResult } from './commands/actions.js';
 import { apiCommand } from './commands/api.js';
+import { evaluateMemory } from './commands/evaluate.js';
 
 function usage(): void {
   console.log(`Usage:
@@ -18,6 +19,7 @@ function usage(): void {
   monkeys-memory config set api-url <url>
   monkeys-memory retrieve [--repo <repo>] [--path <path>] [--task <task>] [--limit <n>]
   monkeys-memory capture [--repo <repo>] --title <title> --claim <claim> --path <path> [--task <task>]
+  monkeys-memory memory-evaluate [--repo <repo>] --rule-id <id> --outcome helpful|not-relevant|outdated|accepted|failed
   monkeys-memory repo scan [--repo <repo>] [--workspace <dir>] [--action-id <id>] [--no-report]
   monkeys-memory update-skills [--action-id <id>] [--manifest-url <url>] [--manifest-hash <sha256>] [--no-report]
   monkeys-memory install-skills [--manifest-url <url>] [--manifest-hash <sha256>]
@@ -43,6 +45,7 @@ export async function main(argv: string[]): Promise<void> {
   if (command === 'config') return configCommand(subArgs);
   if (command === 'retrieve') return retrieve(subArgs);
   if (command === 'capture') return capture(subArgs);
+  if (command === 'memory-evaluate' || command === 'evaluate-memory') return evaluateMemory(subArgs);
   if (command === 'repo' && subArgs._[0] === 'scan') return repoScan({ ...subArgs, _: subArgs._.slice(1) });
   if (command === 'update-skills' || command === 'install-skills') return updateSkills(subArgs);
   if (command === 'agent-capabilities') {

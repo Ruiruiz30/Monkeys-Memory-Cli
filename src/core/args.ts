@@ -36,7 +36,7 @@ export function parseArgs(argv: string[]): CLIArgs {
         args[key] = true as never;
       } else {
         if (next === undefined) throw new Error(`${token} requires a value`);
-        if (['path', 'task', 'entity'].includes(key) && args[key] !== undefined) {
+        if (['path', 'task', 'entity', 'evidence'].includes(key) && args[key] !== undefined) {
           args[key] = [...collectValues(args[key]), next] as never;
         } else {
           args[key] = next as never;

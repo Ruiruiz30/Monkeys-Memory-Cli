@@ -16,6 +16,11 @@ export type CLIArgs = JsonObject & {
     title?: string;
     claim?: string;
     kind?: string;
+    ruleId?: string;
+    outcome?: string;
+    note?: string;
+    adopted?: string;
+    confidence?: string;
     branch?: string;
     tag?: string;
     commit?: string;
@@ -32,6 +37,7 @@ export type CLIArgs = JsonObject & {
     type?: string;
     evidenceType?: string;
     evidenceRef?: string;
+    evidence?: string | string[];
 };
 export type AgentAction = {
     id: string;

@@ -39,7 +39,7 @@ export function parseArgs(argv) {
             else {
                 if (next === undefined)
                     throw new Error(`${token} requires a value`);
-                if (['path', 'task', 'entity'].includes(key) && args[key] !== undefined) {
+                if (['path', 'task', 'entity', 'evidence'].includes(key) && args[key] !== undefined) {
                     args[key] = [...collectValues(args[key]), next];
                 }
                 else {

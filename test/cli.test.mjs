@@ -100,6 +100,51 @@ test('repo scan infers repo name from git remote when --repo is omitted', async 
   }
 });
 
+test('memory-evaluate posts agent memory evaluation feedback', async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
+  const server = await startServer(async (req) => {
+    if (req.url === '/api/v1/agent/memory-evaluations') {
+      return { body: { status: 'recorded', recorded_count: 1 } };
+    }
+    return { status: 404, body: { error: 'not found' } };
+  });
+  await writeFile(path.join(home, '.monkeys-memory-config-bootstrap'), '');
+  await execFileAsync(process.execPath, [cliPath, 'config', 'set', 'api-url', server.url], {
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+    encoding: 'utf8',
+  });
+
+  try {
+    const { stdout } = await run([
+      'memory-evaluate',
+      '--repo', 'product-api',
+      '--rule-id', 'rule_1',
+      '--outcome', 'helpful',
+      '--adopted', 'true',
+      '--confidence', '0.86',
+      '--note', 'Applied during auth fix.',
+      '--evidence', 'npm test passed',
+    ], {
+      home,
+      env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
+    });
+    assert.equal(JSON.parse(stdout).recorded_count, 1);
+    assert.equal(server.requests[0].method, 'POST');
+    assert.equal(server.requests[0].body.repo, 'product-api');
+    assert.deepEqual(server.requests[0].body.evaluations, [{
+      rule_id: 'rule_1',
+      outcome: 'helpful',
+      adopted: true,
+      confidence: 0.86,
+      note: 'Applied during auth fix.',
+      evidence: ['npm test passed'],
+    }]);
+    assert.match(server.requests[0].authorization, /^Bearer mk_cli_test$/);
+  } finally {
+    await server.close();
+  }
+});
+
 test('install-skills creates Codex and Claude skill directories on a fresh machine', async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
   const useContent = '# use\n';
