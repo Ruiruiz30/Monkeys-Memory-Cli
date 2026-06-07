@@ -26,7 +26,13 @@ async function startServer(handler) {
     req.on('data', (chunk) => { raw += chunk; });
     req.on('end', async () => {
       const body = raw ? JSON.parse(raw) : null;
-      requests.push({ method: req.method, url: req.url, body, authorization: req.headers.authorization });
+      requests.push({
+        method: req.method,
+        url: req.url,
+        body,
+        authorization: req.headers.authorization,
+        orgId: req.headers['x-org-id'],
+      });
       const result = await handler(req, body);
       res.statusCode = result.status ?? 200;
       res.setHeader('Content-Type', result.text === undefined ? 'application/json' : 'text/plain');
@@ -139,6 +145,72 @@ test('memory-evaluate posts agent memory evaluation feedback', async () => {
       evidence: ['npm test passed'],
     }]);
     assert.match(server.requests[0].authorization, /^Bearer mk_cli_test$/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('api command normalizes short paths and sends org header', async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
+  const server = await startServer(async (req) => {
+    if (req.url === '/api/v1/auth/me') {
+      return { body: { ok: true } };
+    }
+    return { status: 404, body: { error: 'not found' } };
+  });
+  await writeFile(path.join(home, '.monkeys-memory-config-bootstrap'), '');
+  await execFileAsync(process.execPath, [cliPath, 'config', 'set', 'api-url', server.url], {
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+    encoding: 'utf8',
+  });
+
+  try {
+    const { stdout } = await run(['api', 'GET', '/auth/me', '--org-id', 'org_1'], {
+      home,
+      env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
+    });
+    assert.equal(JSON.parse(stdout).ok, true);
+    assert.equal(server.requests[0].url, '/api/v1/auth/me');
+    assert.equal(server.requests[0].orgId, 'org_1');
+  } finally {
+    await server.close();
+  }
+});
+
+test('agent-action-result reports repo context and org header', async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
+  const repo = await createGitRepo();
+  const server = await startServer(async (req) => {
+    if (req.url === '/api/v1/agent-actions/act_1/result') {
+      return { body: { id: 'act_1', status: 'completed' } };
+    }
+    return { status: 404, body: { error: 'not found' } };
+  });
+  await writeFile(path.join(home, '.monkeys-memory-config-bootstrap'), '');
+  await execFileAsync(process.execPath, [cliPath, 'config', 'set', 'api-url', server.url], {
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+    encoding: 'utf8',
+  });
+
+  try {
+    const { stdout } = await run([
+      'agent-action-result',
+      '--action-id', 'act_1',
+      '--type', 'repo_scan',
+      '--org-id', 'org_1',
+    ], {
+      cwd: repo,
+      home,
+      env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
+    });
+    const output = JSON.parse(stdout);
+    assert.equal(output.report.status, 'completed');
+    assert.equal(output.repo, 'product-api');
+    assert.equal(server.requests[0].url, '/api/v1/agent-actions/act_1/result');
+    assert.equal(server.requests[0].orgId, 'org_1');
+    assert.equal(server.requests[0].body.repo, 'product-api');
+    assert.equal(server.requests[0].body.status, 'completed');
+    assert.equal(server.requests[0].body.result.schema_version, 1);
   } finally {
     await server.close();
   }

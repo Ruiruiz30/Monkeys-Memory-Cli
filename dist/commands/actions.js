@@ -1,8 +1,14 @@
 import { apiRequest } from '../core/http.js';
-import { repoScanResult } from '../local/git.js';
-export async function reportAction(actionId, result) {
+import { inferRepoName, repoScanResult } from '../local/git.js';
+export async function reportAction(actionId, result, context = {}) {
+    const data = result instanceof Error
+        ? { status: 'failed', error: result.message }
+        : { status: 'completed', result };
+    if (context.repo)
+        data.repo = context.repo;
     return apiRequest('POST', `/api/v1/agent-actions/${encodeURIComponent(actionId)}/result`, {
-        data: result instanceof Error ? { status: 'failed', error: result.message } : { status: 'completed', result },
+        data,
+        headers: context.orgId ? { 'X-Org-Id': context.orgId } : undefined,
     });
 }
 export async function runImmediateActions(response, args) {
@@ -15,8 +21,10 @@ export async function agentActionResult(args) {
         throw new Error('--action-id is required');
     if (args.type && args.type !== 'repo_scan')
         throw new Error(`unsupported agent action type: ${args.type}`);
-    const result = await repoScanResult(args.workspace ?? process.cwd());
-    const report = args.noReport ? null : await reportAction(args.actionId, result);
-    console.log(JSON.stringify({ action_id: args.actionId, type: args.type ?? 'repo_scan', result, report }, null, 2));
+    const workspace = args.workspace ?? process.cwd();
+    const repo = args.repo ?? await inferRepoName(workspace);
+    const result = await repoScanResult(workspace);
+    const report = args.noReport ? null : await reportAction(args.actionId, result, { orgId: args.orgId, repo });
+    console.log(JSON.stringify({ action_id: args.actionId, type: args.type ?? 'repo_scan', repo, result, report }, null, 2));
 }
 //# sourceMappingURL=actions.js.map

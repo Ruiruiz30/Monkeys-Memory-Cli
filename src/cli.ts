@@ -25,8 +25,8 @@ function usage(): void {
   monkeys-memory update-skills [--action-id <id>] [--no-report]
   monkeys-memory install-skills
   monkeys-memory agent-capabilities
-  monkeys-memory agent-action-result --action-id <id> --type repo_scan [--workspace <dir>] [--no-report]
-  monkeys-memory api <METHOD> <PATH> [--data <json>] [--params <json>]`);
+  monkeys-memory agent-action-result --action-id <id> --type repo_scan [--repo <repo>] [--org-id <orgId>] [--workspace <dir>] [--no-report]
+  monkeys-memory api <METHOD> <PATH> [--data <json>] [--params <json>] [--org-id <orgId>]`);
 }
 
 export async function main(argv: string[]): Promise<void> {

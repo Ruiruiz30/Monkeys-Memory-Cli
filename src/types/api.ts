@@ -4,6 +4,7 @@ export type CLIArgs = JsonObject & {
   _: string[];
   help?: boolean;
   apiUrl?: string;
+  orgId?: string;
   noOpen?: boolean;
   noReport?: boolean;
   noAutoActions?: boolean;

@@ -8,13 +8,14 @@ export async function repoScan(args: CLIArgs): Promise<void> {
   const repo = args.repo ?? await inferRepoName(workspace);
   const result = await repoScanResult(workspace);
   if (args.actionId && !args.noReport) {
-    const report = await reportAction(args.actionId, result);
+    const report = await reportAction(args.actionId, result, { orgId: args.orgId, repo });
     console.log(JSON.stringify({ result, report }, null, 2));
     return;
   }
   if (repo && !args.noReport) {
     const ingest = await apiRequest('POST', '/api/v1/repos/scan', {
       data: { ...result, repo, provider: 'cli', event: 'repo-scan', mode: 'snapshot' },
+      headers: args.orgId ? { 'X-Org-Id': args.orgId } : undefined,
     });
     console.log(JSON.stringify({ result, ingest }, null, 2));
     return;

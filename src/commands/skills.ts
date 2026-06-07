@@ -5,6 +5,6 @@ import type { CLIArgs } from '../types/api.js';
 export async function updateSkills(args: CLIArgs): Promise<void> {
   const action = { id: args.actionId, payload: {} };
   const result = await skillUpdateResult(action);
-  const report = args.actionId && !args.noReport ? await reportAction(args.actionId, result) : null;
+  const report = args.actionId && !args.noReport ? await reportAction(args.actionId, result, { orgId: args.orgId, repo: args.repo }) : null;
   console.log(JSON.stringify({ result, report }, null, 2));
 }
