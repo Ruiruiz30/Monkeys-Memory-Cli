@@ -216,6 +216,95 @@ test('agent-action-result reports repo context and org header', async () => {
   }
 });
 
+test('retrieve automatically reports leased repo scan actions', async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
+  const repo = await createGitRepo();
+  const server = await startServer(async (req) => {
+    if (req.url === '/api/v1/retrieve') {
+      return {
+        body: {
+          enabled: true,
+          repo: 'product-api',
+          rules: [],
+          exceptions: [],
+          org_rules: [],
+          agent_actions: [{
+            id: 'act_1',
+            type: 'repo_scan',
+            repo: 'product-api',
+            status: 'leased',
+            payload: {},
+          }],
+        },
+      };
+    }
+    if (req.url === '/api/v1/agent-actions/act_1/result') {
+      return { body: { id: 'act_1', status: 'completed' } };
+    }
+    return { status: 404, body: { error: 'not found' } };
+  });
+  await writeFile(path.join(home, '.monkeys-memory-config-bootstrap'), '');
+  await execFileAsync(process.execPath, [cliPath, 'config', 'set', 'api-url', server.url], {
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+    encoding: 'utf8',
+  });
+
+  try {
+    const { stdout } = await run(['retrieve', '--repo', 'product-api', '--path', 'index.js', '--task', 'bugfix'], {
+      cwd: repo,
+      home,
+      env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
+    });
+    const output = JSON.parse(stdout);
+    assert.equal(output.agent_action_results[0].id, 'act_1');
+    assert.equal(output.agent_action_results[0].status, 'completed');
+    assert.equal(server.requests[0].url, '/api/v1/retrieve');
+    assert.equal(server.requests[1].url, '/api/v1/agent-actions/act_1/result');
+    assert.equal(server.requests[1].body.repo, 'product-api');
+    assert.equal(server.requests[1].body.status, 'completed');
+    assert.equal(server.requests[1].body.result.schema_version, 1);
+  } finally {
+    await server.close();
+  }
+});
+
+test('retrieve marks malformed agent actions as skipped', async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
+  const server = await startServer(async (req) => {
+    if (req.url === '/api/v1/retrieve') {
+      return {
+        body: {
+          enabled: true,
+          repo: 'product-api',
+          rules: [],
+          exceptions: [],
+          org_rules: [],
+          agent_actions: [{ repo: 'product-api', status: 'leased', payload: {} }],
+        },
+      };
+    }
+    return { status: 404, body: { error: 'not found' } };
+  });
+  await writeFile(path.join(home, '.monkeys-memory-config-bootstrap'), '');
+  await execFileAsync(process.execPath, [cliPath, 'config', 'set', 'api-url', server.url], {
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+    encoding: 'utf8',
+  });
+
+  try {
+    const { stdout } = await run(['retrieve', '--repo', 'product-api'], {
+      home,
+      env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
+    });
+    const output = JSON.parse(stdout);
+    assert.equal(output.agent_action_results[0].status, 'skipped');
+    assert.equal(output.agent_action_results[0].reason, 'malformed-agent-action');
+    assert.equal(server.requests.length, 1);
+  } finally {
+    await server.close();
+  }
+});
+
 test('install-skills creates Codex and Claude skill directories on a fresh machine', async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-home-'));
   const useContent = await readFile(path.resolve('skills/monkeys-memory-use/SKILL.md'), 'utf8');

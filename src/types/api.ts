@@ -44,6 +44,7 @@ export type CLIArgs = JsonObject & {
 export type AgentAction = {
   id: string;
   type: string;
+  repo?: string | null;
   payload?: {
     manifest_url?: string;
     manifest_hash?: string;

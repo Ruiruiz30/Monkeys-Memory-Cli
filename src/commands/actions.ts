@@ -1,6 +1,6 @@
 import { apiRequest } from '../core/http.js';
 import { inferRepoName, repoScanResult } from '../local/git.js';
-import type { CLIArgs, JsonObject } from '../types/api.js';
+import type { AgentAction, CLIArgs, JsonObject } from '../types/api.js';
 
 type ActionReportContext = {
   orgId?: string;
@@ -21,7 +21,50 @@ export async function reportAction(actionId: string, result: unknown, context: A
 
 export async function runImmediateActions(response: JsonObject, args: CLIArgs): Promise<JsonObject> {
   if (args.noAutoActions) return response;
-  return response;
+  const actions = Array.isArray(response.agent_actions) ? response.agent_actions : [];
+  if (actions.length === 0) return response;
+
+  const results: JsonObject[] = [];
+  for (const rawAction of actions) {
+    const action = rawAction as Partial<AgentAction>;
+    if (!action.id || !action.type) {
+      results.push({
+        status: 'skipped',
+        reason: 'malformed-agent-action',
+        action: rawAction,
+      });
+      continue;
+    }
+    if (action.type !== 'repo_scan') {
+      results.push({
+        id: action.id,
+        type: action.type,
+        status: 'skipped',
+        reason: 'unsupported-agent-action',
+      });
+      continue;
+    }
+
+    const workspace = args.workspace ?? process.cwd();
+    const repo = typeof action.repo === 'string'
+      ? action.repo
+      : args.repo ?? await inferRepoName(workspace);
+    const result = await repoScanResult(workspace);
+    const report = args.noReport ? null : await reportAction(action.id, result, { orgId: args.orgId, repo });
+    results.push({
+      id: action.id,
+      type: action.type,
+      repo,
+      status: report?.status ?? (args.noReport ? 'not-reported' : 'reported'),
+      result,
+      report,
+    });
+  }
+
+  return {
+    ...response,
+    agent_action_results: results,
+  };
 }
 
 export async function agentActionResult(args: CLIArgs): Promise<void> {
