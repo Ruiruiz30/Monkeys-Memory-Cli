@@ -1,24 +1,32 @@
 import { apiRequest } from '../core/http.js';
-import { inferRepoName, repoScanResult } from '../local/git.js';
+import { parseJson } from '../core/args.js';
+import { compactRepoScanResult, inferRepoName, repoScanResult } from '../local/git.js';
 import { reportAction } from './actions.js';
 import type { CLIArgs } from '../types/api.js';
+
+function applyAgentGuideData(result: Awaited<ReturnType<typeof repoScanResult>>, args: CLIArgs) {
+  const extra = args.data ? parseJson(args.data, '--data') : {};
+  if (args.guide) extra.agent_repo_guide = { schema_version: 1, summary: args.guide };
+  return { ...result, ...extra };
+}
 
 export async function repoScan(args: CLIArgs): Promise<void> {
   const workspace = args.workspace ?? process.cwd();
   const repo = args.repo ?? await inferRepoName(workspace);
-  const result = await repoScanResult(workspace);
+  const fullResult = applyAgentGuideData(await repoScanResult(workspace, repo), args);
+  const reportResult = args.fullScan ? { ...fullResult, scan_mode: 'full' } : compactRepoScanResult(fullResult);
   if (args.actionId && !args.noReport) {
-    const report = await reportAction(args.actionId, result, { orgId: args.orgId, repo });
-    console.log(JSON.stringify({ result, report }, null, 2));
+    const report = await reportAction(args.actionId, reportResult, { orgId: args.orgId, repo });
+    console.log(JSON.stringify({ result: reportResult, report }, null, 2));
     return;
   }
   if (repo && !args.noReport) {
     const ingest = await apiRequest('POST', '/api/v1/repos/scan', {
-      data: { ...result, repo, provider: 'cli', event: 'repo-scan', mode: 'snapshot' },
+      data: { ...reportResult, repo, provider: 'cli', event: 'repo-scan', mode: 'snapshot' },
       headers: args.orgId ? { 'X-Org-Id': args.orgId } : undefined,
     });
-    console.log(JSON.stringify({ result, ingest }, null, 2));
+    console.log(JSON.stringify({ result: reportResult, ingest }, null, 2));
     return;
   }
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(fullResult, null, 2));
 }

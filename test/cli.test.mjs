@@ -50,7 +50,15 @@ async function startServer(handler) {
 
 async function createGitRepo(remoteUrl = 'git@github.com:inf-monkeys-tech/product-api.git') {
   const repo = await mkdtemp(path.join(os.tmpdir(), 'mm-cli-repo-'));
-  await writeFile(path.join(repo, 'index.js'), 'console.log("ok");\n');
+  await writeFile(path.join(repo, 'package.json'), JSON.stringify({
+    name: 'product-api',
+    description: 'Test product API',
+    packageManager: 'bun@1.3.14',
+    scripts: { check: 'tsc --noEmit', test: 'node --test', build: 'tsc' },
+    dependencies: { fastify: '^5.0.0' },
+    devDependencies: { typescript: '^5.0.0' },
+  }, null, 2));
+  await writeFile(path.join(repo, 'index.js'), 'export function main() {\n  return "ok";\n}\n');
   await execFileAsync('git', ['init'], { cwd: repo });
   await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo });
   await execFileAsync('git', ['config', 'user.name', 'Test User'], { cwd: repo });
@@ -99,6 +107,15 @@ test('repo scan infers repo name from git remote when --repo is omitted', async 
       env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
     });
     assert.equal(server.requests[0].body.repo, 'product-api');
+    assert.equal(server.requests[0].body.schema_version, 2);
+    assert.equal(server.requests[0].body.scan_mode, 'compact');
+    assert.equal(server.requests[0].body.known_paths.length, 0);
+    assert.equal(server.requests[0].body.known_path_count, 2);
+    assert.equal(server.requests[0].body.repo_profile.kind, 'backend-service');
+    assert.match(server.requests[0].body.repo_brief, /product-api Repository Brief/);
+    assert.equal(server.requests[0].body.code_entities.length, 0);
+    assert.equal(server.requests[0].body.code_entity_count, 1);
+    assert.deepEqual(server.requests[0].body.code_entity_sample.map((entity) => entity.id), ['function:main']);
     assert.match(server.requests[0].authorization, /^Bearer mk_cli_test$/);
   } finally {
     await server.close();
@@ -198,6 +215,8 @@ test('agent-action-result reports repo context and org header', async () => {
       '--action-id', 'act_1',
       '--type', 'repo_scan',
       '--org-id', 'org_1',
+      '--repo', 'product-api-explicit',
+      '--data', '{"agent_repo_guide":{"schema_version":1,"summary":"Agent-written guide","agent_instructions":["Keep API wrappers stable."],"confidence":"high"}}',
     ], {
       cwd: repo,
       home,
@@ -205,12 +224,21 @@ test('agent-action-result reports repo context and org header', async () => {
     });
     const output = JSON.parse(stdout);
     assert.equal(output.report.status, 'completed');
-    assert.equal(output.repo, 'product-api');
+    assert.equal(output.repo, 'product-api-explicit');
     assert.equal(server.requests[0].url, '/api/v1/agent-actions/act_1/result');
     assert.equal(server.requests[0].orgId, 'org_1');
-    assert.equal(server.requests[0].body.repo, 'product-api');
+    assert.equal(server.requests[0].body.repo, 'product-api-explicit');
     assert.equal(server.requests[0].body.status, 'completed');
-    assert.equal(server.requests[0].body.result.schema_version, 1);
+    assert.equal(server.requests[0].body.result.schema_version, 2);
+    assert.equal(server.requests[0].body.result.scan_mode, 'compact');
+    assert.equal(server.requests[0].body.result.known_paths.length, 0);
+    assert.equal(server.requests[0].body.result.known_path_count, 2);
+    assert.equal(server.requests[0].body.result.repo_profile.name, 'product-api-explicit');
+    assert.equal(server.requests[0].body.result.agent_repo_guide.summary, 'Agent-written guide');
+    assert.deepEqual(server.requests[0].body.result.agent_repo_guide.agent_instructions, ['Keep API wrappers stable.']);
+    assert.equal(server.requests[0].body.result.code_entities.length, 0);
+    assert.equal(server.requests[0].body.result.code_entity_count, 1);
+    assert.deepEqual(server.requests[0].body.result.code_entity_sample.map((entity) => entity.id), ['function:main']);
   } finally {
     await server.close();
   }
@@ -262,7 +290,11 @@ test('retrieve automatically reports leased repo scan actions', async () => {
     assert.equal(server.requests[1].url, '/api/v1/agent-actions/act_1/result');
     assert.equal(server.requests[1].body.repo, 'product-api');
     assert.equal(server.requests[1].body.status, 'completed');
-    assert.equal(server.requests[1].body.result.schema_version, 1);
+    assert.equal(server.requests[1].body.result.schema_version, 2);
+    assert.equal(server.requests[1].body.result.scan_mode, 'compact');
+    assert.equal(server.requests[1].body.result.known_paths.length, 0);
+    assert.equal(server.requests[1].body.result.known_path_count, 2);
+    assert.equal(server.requests[1].body.result.repo_profile.kind, 'backend-service');
   } finally {
     await server.close();
   }

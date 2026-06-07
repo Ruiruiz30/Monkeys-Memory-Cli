@@ -21,11 +21,11 @@ function usage(): void {
   monkeys-memory retrieve [--repo <repo>] [--path <path>] [--task <task>] [--limit <n>]
   monkeys-memory capture [--repo <repo>] --title <title> --claim <claim> --path <path> [--task <task>]
   monkeys-memory memory-evaluate [--repo <repo>] --rule-id <id> --outcome helpful|not-relevant|outdated|accepted|failed
-  monkeys-memory repo scan [--repo <repo>] [--workspace <dir>] [--action-id <id>] [--no-report]
+  monkeys-memory repo scan [--repo <repo>] [--workspace <dir>] [--action-id <id>] [--data <json>] [--guide <text>] [--full-scan] [--no-report]
   monkeys-memory update-skills [--action-id <id>] [--no-report]
   monkeys-memory install-skills
   monkeys-memory agent-capabilities
-  monkeys-memory agent-action-result --action-id <id> --type repo_scan [--repo <repo>] [--org-id <orgId>] [--workspace <dir>] [--no-report]
+  monkeys-memory agent-action-result --action-id <id> --type repo_scan [--repo <repo>] [--org-id <orgId>] [--workspace <dir>] [--data <json>] [--guide <text>] [--full-scan] [--no-report]
   monkeys-memory api <METHOD> <PATH> [--data <json>] [--params <json>] [--org-id <orgId>]`);
 }
 

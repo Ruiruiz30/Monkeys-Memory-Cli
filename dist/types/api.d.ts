@@ -7,6 +7,7 @@ export type CLIArgs = JsonObject & {
     noOpen?: boolean;
     noReport?: boolean;
     noAutoActions?: boolean;
+    fullScan?: boolean;
     includeSensitive?: boolean;
     deviceName?: string;
     repo?: string;
@@ -31,6 +32,7 @@ export type CLIArgs = JsonObject & {
     limit?: string;
     json?: string;
     data?: string;
+    guide?: string;
     params?: string;
     actionId?: string;
     manifestHash?: string;
@@ -56,11 +58,15 @@ export type AgentCapabilities = {
     }>;
 };
 export type RepoScanResult = {
-    schema_version: 1;
+    schema_version: 1 | 2;
+    scan_mode?: 'compact' | 'full';
     scanned_at: string;
     branch: string | null;
     commit: string | null;
     known_paths: string[];
+    known_path_count?: number;
+    known_path_sample?: string[];
+    known_dirs?: string[];
     changed_paths: string[];
     deleted_paths: string[];
     renamed_paths: Array<{
@@ -68,6 +74,11 @@ export type RepoScanResult = {
         to: string;
     }>;
     code_entities: unknown[];
+    code_entity_count?: number;
+    code_entity_sample?: unknown[];
+    repo_profile?: unknown;
+    repo_brief?: string;
+    agent_repo_guide?: unknown;
 };
 export type SkillManifestItem = {
     name: string;

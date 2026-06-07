@@ -88,11 +88,19 @@ Skills are bundled with the npm CLI package. The CLI periodically checks npm for
 When `agent_actions` is present:
 - Finish the user's main task and capture decision first.
 - For each remaining supported action, run it once after capture.
-- For `repo_scan`, execute:
+- For `repo_scan`, prefer an Agent-authored guide instead of treating the CLI as the source of repository meaning. Run a local fact scan, inspect paths/commands/frameworks/`AGENTS.md`, then report a compact `agent_repo_guide`:
 
 ```bash
-monkeys-memory agent-action-result --workspace "<current-repo>" --action-id "<action-id>" --type repo_scan
+monkeys-memory agent-action-result \
+  --workspace "<current-repo>" \
+  --action-id "<action-id>" \
+  --type repo_scan \
+  --data "{\"agent_repo_guide\":{\"schema_version\":1,\"summary\":\"What this repo is and owns.\",\"architecture\":[\"Key architectural facts.\"],\"primary_workflows\":[\"Common workflows.\"],\"ownership\":{\"owns\":[\"Owned areas.\"],\"does_not_own\":[\"External areas.\"],\"boundaries\":[\"Important boundaries.\"]},\"commands\":[{\"name\":\"test\",\"command\":\"npm run test\",\"purpose\":\"Run automated tests.\"}],\"agent_instructions\":[\"Stable instructions for future agents.\"],\"memory_hints\":[\"What memory would help retrieval here.\"],\"confidence\":\"medium\"}}"
 ```
+
+If you cannot safely write the guide, run the same command without `--data`; the CLI will still report deterministic scan facts.
+
+Repo scans are compact by default when reported: the CLI sends counts, directory indexes, path/entity samples, repo profile, and the Agent guide instead of full path/entity lists. Add `--full-scan` only when a full repository index is explicitly needed.
 
 Do not ask the user to sync code manually or connect GitHub. The backend controls freshness and leases for repo actions. Skill updates come from npm CLI releases.
 

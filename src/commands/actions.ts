@@ -1,5 +1,6 @@
 import { apiRequest } from '../core/http.js';
-import { inferRepoName, repoScanResult } from '../local/git.js';
+import { parseJson } from '../core/args.js';
+import { compactRepoScanResult, inferRepoName, repoScanResult } from '../local/git.js';
 import type { AgentAction, CLIArgs, JsonObject } from '../types/api.js';
 
 type ActionReportContext = {
@@ -17,6 +18,12 @@ export async function reportAction(actionId: string, result: unknown, context: A
     data,
     headers: context.orgId ? { 'X-Org-Id': context.orgId } : undefined,
   });
+}
+
+function applyAgentGuideData(result: Awaited<ReturnType<typeof repoScanResult>>, args: CLIArgs) {
+  const extra = args.data ? parseJson(args.data, '--data') : {};
+  if (args.guide) extra.agent_repo_guide = { schema_version: 1, summary: args.guide };
+  return { ...result, ...extra };
 }
 
 export async function runImmediateActions(response: JsonObject, args: CLIArgs): Promise<JsonObject> {
@@ -49,7 +56,8 @@ export async function runImmediateActions(response: JsonObject, args: CLIArgs): 
     const repo = typeof action.repo === 'string'
       ? action.repo
       : args.repo ?? await inferRepoName(workspace);
-    const result = await repoScanResult(workspace);
+    const fullResult = applyAgentGuideData(await repoScanResult(workspace, repo), args);
+    const result = args.fullScan ? { ...fullResult, scan_mode: 'full' } : compactRepoScanResult(fullResult);
     const report = args.noReport ? null : await reportAction(action.id, result, { orgId: args.orgId, repo });
     results.push({
       id: action.id,
@@ -72,7 +80,8 @@ export async function agentActionResult(args: CLIArgs): Promise<void> {
   if (args.type && args.type !== 'repo_scan') throw new Error(`unsupported agent action type: ${args.type}`);
   const workspace = args.workspace ?? process.cwd();
   const repo = args.repo ?? await inferRepoName(workspace);
-  const result = await repoScanResult(workspace);
+  const fullResult = applyAgentGuideData(await repoScanResult(workspace, repo), args);
+  const result = args.fullScan ? { ...fullResult, scan_mode: 'full' } : compactRepoScanResult(fullResult);
   const report = args.noReport ? null : await reportAction(args.actionId, result, { orgId: args.orgId, repo });
   console.log(JSON.stringify({ action_id: args.actionId, type: args.type ?? 'repo_scan', repo, result, report }, null, 2));
 }

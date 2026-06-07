@@ -32,7 +32,7 @@ export function parseArgs(argv: string[]): CLIArgs {
     if (token === '--help' || token === '-h') args.help = true;
     else if (token.startsWith('--')) {
       const key = token.slice(2).replace(/-([a-z])/g, (_, char: string) => char.toUpperCase()) as keyof CLIArgs;
-      if (['includeSensitive', 'noAutoActions', 'noReport', 'noOpen'].includes(key)) {
+      if (['includeSensitive', 'noAutoActions', 'noReport', 'noOpen', 'fullScan'].includes(key)) {
         args[key] = true as never;
       } else {
         if (next === undefined) throw new Error(`${token} requires a value`);

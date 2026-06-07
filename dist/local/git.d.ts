@@ -9,4 +9,5 @@ export declare function inferGitContext(workspace?: string): Promise<{
     commit: string | null;
 }>;
 export declare function inferRepoName(workspace?: string): Promise<string>;
-export declare function repoScanResult(workspace?: string): Promise<RepoScanResult>;
+export declare function compactRepoScanResult(result: RepoScanResult): RepoScanResult;
+export declare function repoScanResult(workspace?: string, repoName?: string): Promise<RepoScanResult>;

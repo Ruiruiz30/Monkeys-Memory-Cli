@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { buildRepoProfile, extractCodeEntities } from './repo-profile.js';
 const execFileAsync = promisify(execFile);
 export async function runGit(cwd, gitArgs) {
     try {
@@ -65,9 +66,58 @@ async function listKnownPaths(workspaceRoot) {
     await walk(workspaceRoot);
     return [...new Set(paths)].sort();
 }
-export async function repoScanResult(workspace) {
+function parentDirs(filePath) {
+    const parts = normalizePath(filePath).split('/').filter(Boolean);
+    const dirs = [];
+    for (let index = 1; index < parts.length; index += 1)
+        dirs.push(parts.slice(0, index).join('/'));
+    return dirs;
+}
+function samplePaths(paths, limit) {
+    const priority = paths.filter(item => /(^|\/)(AGENTS\.md|README\.md|package\.json|tsconfig\.json|vite\.config\.ts|Dockerfile)$/.test(item)
+        || item.startsWith('src/')
+        || item.startsWith('app/')
+        || item.startsWith('pages/')
+        || item.startsWith('components/')
+        || item.startsWith('tests/')
+        || item.startsWith('test/'));
+    return [...new Set([...priority, ...paths])].slice(0, limit).sort();
+}
+export function compactRepoScanResult(result) {
+    const knownPaths = result.known_paths ?? [];
+    const codeEntities = result.code_entities ?? [];
+    const knownDirs = [...new Set(knownPaths.flatMap(parentDirs))]
+        .sort()
+        .slice(0, 1500);
+    const codeEntitySample = codeEntities
+        .slice(0, 500)
+        .map((entity) => {
+        if (!entity || typeof entity !== 'object')
+            return entity;
+        const row = entity;
+        return {
+            id: row.id,
+            kind: row.kind,
+            name: row.name,
+            path: row.path,
+            line: row.line,
+        };
+    });
+    return {
+        ...result,
+        scan_mode: 'compact',
+        known_path_count: knownPaths.length,
+        known_path_sample: samplePaths(knownPaths, 500),
+        known_dirs: knownDirs,
+        known_paths: [],
+        code_entity_count: codeEntities.length,
+        code_entity_sample: codeEntitySample,
+        code_entities: [],
+    };
+}
+export async function repoScanResult(workspace, repoName) {
     const workspaceRoot = await detectWorkspaceRoot(path.resolve(workspace ?? process.cwd()));
-    const [knownPaths, changed, staged, untracked, deleted, stagedDeleted, branch, commit] = await Promise.all([
+    const [knownPaths, changed, staged, untracked, deleted, stagedDeleted, branch, commit, context] = await Promise.all([
         listKnownPaths(workspaceRoot),
         runGit(workspaceRoot, ['diff', '--name-only', 'HEAD']),
         runGit(workspaceRoot, ['diff', '--name-only', '--cached']),
@@ -76,9 +126,14 @@ export async function repoScanResult(workspace) {
         runGit(workspaceRoot, ['diff', '--name-only', '--diff-filter=D', '--cached']),
         runGit(workspaceRoot, ['branch', '--show-current']),
         runGit(workspaceRoot, ['rev-parse', 'HEAD']),
+        inferGitContext(workspaceRoot),
+    ]);
+    const [{ profile, brief }, codeEntities] = await Promise.all([
+        buildRepoProfile(workspaceRoot, repoName ?? context.repo, knownPaths),
+        extractCodeEntities(workspaceRoot, knownPaths),
     ]);
     return {
-        schema_version: 1,
+        schema_version: 2,
         scanned_at: new Date().toISOString(),
         branch: branch || null,
         commit: commit || null,
@@ -86,7 +141,9 @@ export async function repoScanResult(workspace) {
         changed_paths: [...new Set([...splitLines(changed), ...splitLines(staged), ...splitLines(untracked)])].sort(),
         deleted_paths: [...new Set([...splitLines(deleted), ...splitLines(stagedDeleted)])].sort(),
         renamed_paths: [],
-        code_entities: [],
+        code_entities: codeEntities,
+        repo_profile: profile,
+        repo_brief: brief,
     };
 }
 //# sourceMappingURL=git.js.map

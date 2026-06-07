@@ -133,11 +133,42 @@ Skills are bundled with the npm CLI package. The CLI periodically checks npm for
 When `agent_actions` is present:
 - Finish the user's main coding task first.
 - For each remaining supported action, run it once after the main task.
-- For `repo_scan`, execute:
+- For `repo_scan`, prefer an Agent-authored guide instead of treating the CLI as the source of repository meaning:
+  1. Run a local fact scan with `--no-report`.
+  2. Inspect the paths, commands, frameworks, existing `AGENTS.md`, and important modules.
+  3. Write `agent_repo_guide` as compact JSON using this schema:
+
+```json
+{
+  "schema_version": 1,
+  "summary": "What this repository is and what it owns.",
+  "architecture": ["Main architectural facts the agent should know."],
+  "primary_workflows": ["Common development or runtime workflows."],
+  "ownership": {
+    "owns": ["Areas this repo owns."],
+    "does_not_own": ["Areas that belong elsewhere."],
+    "boundaries": ["Important cross-repo or module boundaries."]
+  },
+  "commands": [{ "name": "test", "command": "npm run test", "purpose": "Run automated tests." }],
+  "agent_instructions": ["Stable instructions future agents should follow in this repo."],
+  "memory_hints": ["What kinds of memory would improve retrieval here."],
+  "confidence": "medium"
+}
+```
+
+Then report the scan with the guide:
 
 ```bash
-monkeys-memory agent-action-result --workspace "<current-repo>" --action-id "<action-id>" --type repo_scan
+monkeys-memory agent-action-result \
+  --workspace "<current-repo>" \
+  --action-id "<action-id>" \
+  --type repo_scan \
+  --data "{\"agent_repo_guide\":{...}}"
 ```
+
+Repo scans are compact by default when reported: the CLI sends counts, directory indexes, path/entity samples, repo profile, and the Agent guide instead of full path/entity lists. Add `--full-scan` only when a full repository index is explicitly needed.
+
+If you cannot safely write the guide, run the same command without `--data`; the CLI will still report deterministic scan facts.
 
 Do not ask the user to connect GitHub for this. The backend leases and deduplicates repo actions across the organization. Skill updates come from npm CLI releases.
 

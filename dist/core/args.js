@@ -33,7 +33,7 @@ export function parseArgs(argv) {
             args.help = true;
         else if (token.startsWith('--')) {
             const key = token.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
-            if (['includeSensitive', 'noAutoActions', 'noReport', 'noOpen'].includes(key)) {
+            if (['includeSensitive', 'noAutoActions', 'noReport', 'noOpen', 'fullScan'].includes(key)) {
                 args[key] = true;
             }
             else {
