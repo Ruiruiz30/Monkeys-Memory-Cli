@@ -146,6 +146,10 @@ test('memory-evaluate posts agent memory evaluation feedback', async () => {
       '--confidence', '0.86',
       '--note', 'Applied during auth fix.',
       '--evidence', 'npm test passed',
+      '--correct-claim', 'Use the new auth middleware contract.',
+      '--correct-title', 'New auth contract',
+      '--correct-path', 'src/auth/**',
+      '--correct-task', 'bugfix',
     ], {
       home,
       env: { MONKEYS_MEMORY_TOKEN: 'mk_cli_test' },
@@ -160,6 +164,14 @@ test('memory-evaluate posts agent memory evaluation feedback', async () => {
       confidence: 0.86,
       note: 'Applied during auth fix.',
       evidence: ['npm test passed'],
+      correction: {
+        claim: 'Use the new auth middleware contract.',
+        title: 'New auth contract',
+        scope: {
+          paths: ['src/auth/**'],
+          task_types: ['bugfix'],
+        },
+      },
     }]);
     assert.match(server.requests[0].authorization, /^Bearer mk_cli_test$/);
   } finally {

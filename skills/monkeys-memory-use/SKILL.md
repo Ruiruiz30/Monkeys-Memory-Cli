@@ -108,6 +108,8 @@ If rules conflict, prefer the most specific active or confirmed memory for the c
 
 After the coding task finishes, evaluate the memory you retrieved. This is the primary impact signal for Monkeys Memory. Human review is optional; agents should report whether retrieved memory was useful or stale based on the work they actually performed.
 
+If a returned memory item is outdated, contradicted by the current repo, or caused a failed attempt, do not merely mention the conflict in your final answer. Report it as `outdated` or `failed`. The server will retire the source memory from runtime retrieval. When you know the corrected rule, include a `correction`; the server will create the replacement memory and mark the old source as superseded.
+
 Only evaluate rules that were returned by this session's retrieve call. Use:
 - `helpful` when a memory item was relevant and helped the task succeed
 - `accepted` when the item was directly adopted as guidance
@@ -120,6 +122,22 @@ Send one compact batch before final response when you have any meaningful evalua
 ```bash
 monkeys-memory memory-evaluate \
   --data "{\"repo\":\"<repo-name>\",\"task\":{\"summary\":\"<short-task-summary>\",\"outcome\":\"success\",\"tests_passed\":true,\"build_passed\":true,\"lint_passed\":true},\"evaluations\":[{\"rule_id\":\"<returned-rule-id>\",\"outcome\":\"helpful\",\"adopted\":true,\"confidence\":0.84,\"note\":\"Applied this rule while changing the auth middleware.\",\"evidence\":[\"npm test passed\"]},{\"rule_id\":\"<returned-rule-id>\",\"outcome\":\"outdated\",\"adopted\":false,\"confidence\":0.9,\"note\":\"Referenced path no longer exists in this repo.\"}]}"
+```
+
+Shortcut form with a correction:
+
+```bash
+monkeys-memory memory-evaluate \
+  --repo "<repo-name>" \
+  --rule-id "<returned-rule-id>" \
+  --outcome outdated \
+  --adopted false \
+  --confidence 0.9 \
+  --note "Old guidance conflicts with the current runtime boundary." \
+  --correct-title "Kernel owns model credentials" \
+  --correct-claim "Keep model and credential management in Kernel; Compute only receives the compatibility fields it still needs at runtime." \
+  --correct-path "src/runtime/**" \
+  --correct-task "feature"
 ```
 
 Do not invent evaluations for memory you did not inspect. If no memory was retrieved, or none was relevant enough to judge, skip this call. Keep notes factual and avoid secrets.

@@ -24,6 +24,12 @@ export type CLIArgs = JsonObject & {
   note?: string;
   adopted?: string;
   confidence?: string;
+  correctTitle?: string;
+  correctClaim?: string;
+  correctKind?: string;
+  correctPath?: string | string[];
+  correctTask?: string | string[];
+  correctEntity?: string | string[];
   branch?: string;
   tag?: string;
   commit?: string;

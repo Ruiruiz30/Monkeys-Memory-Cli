@@ -2,6 +2,7 @@ import { collectValues, parseJson, setIfPresent } from '../core/args.js';
 import { apiRequest } from '../core/http.js';
 import { inferRepoName } from '../local/git.js';
 const VALID_OUTCOMES = new Set(['helpful', 'not-relevant', 'outdated', 'accepted', 'failed']);
+const VALID_CORRECTION_KINDS = new Set(['rule', 'exception', 'procedure', 'checklist', 'note']);
 function parseBoolean(value, flagName) {
     if (value === undefined || value === null || value === '')
         return undefined;
@@ -19,6 +20,31 @@ function parseConfidence(value) {
     if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1)
         throw new Error('--confidence must be a number between 0 and 1');
     return parsed;
+}
+function buildCorrection(args) {
+    if (!args.correctClaim && !args.correctTitle && !args.correctPath && !args.correctTask && !args.correctEntity && !args.correctKind)
+        return undefined;
+    if (!args.correctClaim)
+        throw new Error('--correct-claim is required when using correction flags');
+    if (args.correctKind && !VALID_CORRECTION_KINDS.has(args.correctKind)) {
+        throw new Error('--correct-kind must be rule, exception, procedure, checklist, or note');
+    }
+    const scope = {};
+    const paths = collectValues(args.correctPath);
+    const taskTypes = collectValues(args.correctTask);
+    const entities = collectValues(args.correctEntity);
+    if (paths.length > 0)
+        scope.paths = paths;
+    if (taskTypes.length > 0)
+        scope.task_types = taskTypes;
+    if (entities.length > 0)
+        scope.entities = entities;
+    const correction = { claim: args.correctClaim };
+    setIfPresent(correction, 'title', args.correctTitle);
+    setIfPresent(correction, 'kind', args.correctKind);
+    if (Object.keys(scope).length > 0)
+        correction.scope = scope;
+    return correction;
 }
 async function buildEvaluatePayload(args) {
     const payload = parseJson(args.json ?? args.data, '--json');
@@ -38,6 +64,7 @@ async function buildEvaluatePayload(args) {
                 confidence: parseConfidence(args.confidence),
                 note: args.note,
                 evidence: collectValues(args.evidence),
+                correction: buildCorrection(args),
             }];
     }
     if (!payload.repo)
