@@ -106,22 +106,22 @@ If rules conflict, prefer the most specific active or confirmed memory for the c
 
 ## Agent Memory Evaluation
 
-After the coding task finishes, evaluate the memory you retrieved. This is the primary impact signal for Monkeys Memory. Human review is optional; agents should report whether retrieved memory was useful or stale based on the work they actually performed.
+After the coding task finishes, evaluate the memory items you retrieved. This is the primary impact signal for Monkeys Memory. Agents should report whether returned memory was useful, adopted, stale, irrelevant, or harmful based on the work they actually performed. Do not rely on human usefulness surveys for this product signal.
 
 If a returned memory item is outdated, contradicted by the current repo, or caused a failed attempt, do not merely mention the conflict in your final answer. Report it as `outdated` or `failed`. The server will retire the source memory from runtime retrieval. When you know the corrected rule, include a `correction`; the server will create the replacement memory and mark the old source as superseded.
 
-Only evaluate rules that were returned by this session's retrieve call. Use:
+Only evaluate memory item ids that were returned by this session's retrieve call. The CLI flag is still named `--rule-id` for compatibility, but pass the returned item's `id` whether it came from `rules`, `exceptions`, `procedures`, `checklists`, `notes`, or `org_rules`. Use:
 - `helpful` when a memory item was relevant and helped the task succeed
 - `accepted` when the item was directly adopted as guidance
 - `outdated` when the item conflicts with the current repository, missing paths, changed APIs, dependency versions, or verified test/build evidence
 - `not-relevant` when it matched retrieval but did not apply to this task
 - `failed` when following the memory caused a failed attempt or regression
 
-Send one compact batch before final response when you have any meaningful evaluation:
+Send one compact batch before final response for every returned memory item you inspected. Use `not-relevant` for items that were returned but did not apply, so evaluation coverage measures the full returned-memory surface instead of only positive cases:
 
 ```bash
 monkeys-memory memory-evaluate \
-  --data "{\"repo\":\"<repo-name>\",\"task\":{\"summary\":\"<short-task-summary>\",\"outcome\":\"success\",\"tests_passed\":true,\"build_passed\":true,\"lint_passed\":true},\"evaluations\":[{\"rule_id\":\"<returned-rule-id>\",\"outcome\":\"helpful\",\"adopted\":true,\"confidence\":0.84,\"note\":\"Applied this rule while changing the auth middleware.\",\"evidence\":[\"npm test passed\"]},{\"rule_id\":\"<returned-rule-id>\",\"outcome\":\"outdated\",\"adopted\":false,\"confidence\":0.9,\"note\":\"Referenced path no longer exists in this repo.\"}]}"
+  --data "{\"repo\":\"<repo-name>\",\"task\":{\"summary\":\"<short-task-summary>\",\"outcome\":\"success\",\"tests_passed\":true,\"build_passed\":true,\"lint_passed\":true},\"evaluations\":[{\"rule_id\":\"<returned-item-id>\",\"outcome\":\"helpful\",\"adopted\":true,\"confidence\":0.84,\"note\":\"Applied this memory while changing the auth middleware.\",\"evidence\":[\"npm test passed\"]},{\"rule_id\":\"<returned-item-id>\",\"outcome\":\"outdated\",\"adopted\":false,\"confidence\":0.9,\"note\":\"Referenced path no longer exists in this repo.\"}]}"
 ```
 
 Shortcut form with a correction:
@@ -129,7 +129,7 @@ Shortcut form with a correction:
 ```bash
 monkeys-memory memory-evaluate \
   --repo "<repo-name>" \
-  --rule-id "<returned-rule-id>" \
+  --rule-id "<returned-item-id>" \
   --outcome outdated \
   --adopted false \
   --confidence 0.9 \
@@ -140,7 +140,7 @@ monkeys-memory memory-evaluate \
   --correct-task "feature"
 ```
 
-Do not invent evaluations for memory you did not inspect. If no memory was retrieved, or none was relevant enough to judge, skip this call. Keep notes factual and avoid secrets.
+Do not invent evaluations for memory you did not inspect. If no memory was retrieved, skip this call. Keep notes factual and avoid secrets.
 
 ## Agent Actions
 
